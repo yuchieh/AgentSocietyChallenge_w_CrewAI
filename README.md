@@ -44,38 +44,28 @@ A script to process the raw Yelp dataset into the required format for use with t
 
 ## Quick Start
 
-### 1. Install the Library
+### 1. Installation
 
-The repository is organized using [Python Poetry](https://python-poetry.org/). Follow these steps to install the library:
+This CrewAI Sandbox version exclusively utilizes [Astral `uv`](https://github.com/astral-sh/uv) to manage all dependencies. This ensures a blazingly fast and conflict-free "out-of-the-box" experience without relying on complex Anaconda or Poetry configurations.
 
 1. Clone the repository:
    ```bash
-   git clone <this_repo>
-   cd websocietysimulator
+   git clone https://github.com/yuchieh/AgentSocietyChallenge_w_CrewAI.git
+   cd AgentSocietyChallenge_w_CrewAI
    ```
 
-2. Install dependencies:
-  - Option 1: Install dependencies using Poetry: (Recommended)
-    ```bash
-    poetry install  && \
-    poetry shell
-    ```
-  - Option 2: Install dependencies using pip(COMING SOON):
-    ```bash
-    pip install websocietysimulator
-    ```
-  - Option 3: Install dependencies using conda:
-    ```bash
-    conda create -n websocietysimulator python=3.11 && \
-    conda activate websocietysimulator && \
-    pip install -r requirements.txt && \
-    pip install .
-    ```
-
-3. Verify the installation:
-   ```python
-   import websocietysimulator
+2. Synchronize all dependencies via `uv`:
+   ```bash
+   # If you haven't installed uv yet: curl -LsSf https://astral.sh/uv/install.sh | sh
+   uv sync
    ```
+   *(This step strictly installs both the underlying Simulator's requirements, e.g. pandas/nltk, and the latest CrewAI suite into an isolated virtual environment.)*
+
+3. Verify the Sandbox setup (Mock Mode):
+   ```bash
+   uv run python run_simulator_test.py --mock
+   ```
+   *If the environment is set up correctly, this will simulate the CrewAI agents using a mocked LLM (zero token cost) and print a successful JSON evaluation score.*
 
 ---
 
