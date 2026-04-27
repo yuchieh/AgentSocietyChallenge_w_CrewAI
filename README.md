@@ -8,6 +8,9 @@
 [![Competition Link](https://img.shields.io/badge/competition-link-orange)](https://www.codabench.org/competitions/4574/) &ensp;
 [![arXiv](https://img.shields.io/badge/arXiv-2502.18754-b31b1b.svg)](https://arxiv.org/abs/2502.18754)
 
+> **⚠️ DISCLAIMER: Educational Sandbox Template**
+> This repository is a **customized educational sandbox version** designed specifically for learning CrewAI integration. It is **NOT** the official Tsinghua University AgentSociety Challenge repository. For the official upstream code, datasets, and competition guidelines, please visit the [official repository](https://github.com/tsinghua-fib-lab/AgentSocietyChallenge).
+
 Welcome to the **WWW'25 AgentSociety Challenge**! This repository provides the tools and framework needed to participate in a competition that focuses on building **LLM Agents** for **user behavior simulation** and **recommendation systems** based on open source datasets.
 
 Participants are tasked with developing intelligent agents that interact with a simulated environment and perform specific tasks in two competition tracks:
