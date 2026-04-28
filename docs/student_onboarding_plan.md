@@ -77,7 +77,7 @@
 目前學生在 `simulation_crew.py` 裡還是要做滿多繁瑣的 @agent, @task 裝飾器設定。我們可以寫一個 Base Class，自動遍歷 yaml 把 agent 造出來，學生只要負責挑誰要拿 Tool 就好。不過目前的 boilerplate code 還在可接受範圍內。
 
 ### 3. 提供預設防護網 (Sanitizer)
-LLM 常常會輸出奇怪的 JSON（例如夾雜 ```json block 或者加上雙引號）。這部分我們已經在 `serving_flow.py` 的 `extract_json_from_output` 實作了很強大的 Regex 容錯捕捉了。請確保學生拿到的是**我們已經加上這個強大防護網的版本**，否則他們會因為 JSON parse error 感到非常挫折。
+LLM 常常會輸出奇怪的 JSON（例如夾雜 ```json block 或者加上雙引號）。這部分我們已經在 `serving_flow.py` 的 `extract_json_from_output` 實作了很強大的 Regex 容錯捕捉了。請確保學生拿到的是**我們已經加上這個強大防護網的版本**
 
 ### 4. 建立「Prompt 優化排行榜」
 既然架構已經統一，決定勝負的關鍵就在於 YAML 裡的 Prompting 功力。
