@@ -41,6 +41,9 @@ torch = "^2.5.1"
 lmdb = "^1.6.2"
 agentsociety = "^1.0.13"
 
+[tool.uv]
+required-version = ">=0.5"
+
 [tool.uv.sources]
 openevolve = { path = "../../openevolve" }
 
