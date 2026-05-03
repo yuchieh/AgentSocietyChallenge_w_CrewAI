@@ -66,7 +66,7 @@ This CrewAI Sandbox version exclusively utilizes [Astral `uv`](https://github.co
 
 3. Verify the Sandbox setup (Mock Mode):
    ```bash
-   uv run python run_simulator_test.py --mock
+   uv run python run_pipeline.py --mock
    ```
    *If the environment is set up correctly, this will simulate the CrewAI agents using a mocked LLM (zero token cost) and print a successful JSON evaluation score.*
 
@@ -80,9 +80,35 @@ This CrewAI Sandbox version exclusively utilizes [Astral `uv`](https://github.co
    ```
    Once the credentials are set, run the full realistic simulation without the mock flag:
    ```bash
-   uv run python run_simulator_test.py
+   uv run python run_pipeline.py
    ```
    *This mode consumes real tokens as the multi-agent system actively queries the LLM and the Vector Embedding spaces to produce accurate predictions.*
+
+---
+
+### `run_pipeline.py` — 情境指令速查
+
+`run_pipeline.py` 是本 Sandbox 的主要執行腳本，支援以下情境：
+
+| 情境 | 指令 |
+|------|------|
+| **環境驗證**（零成本，不呼叫 LLM） | `uv run python run_pipeline.py --mock` |
+| **Smoke Test**（只跑 1 筆，確認 API 連線） | `uv run python run_pipeline.py --tasks 1` |
+| **正式評分**（全部任務，sequential） | `uv run python run_pipeline.py` |
+| **加速執行**（2 worker 並行） | `uv run python run_pipeline.py --threads 2` |
+| **自訂逾時**（每筆最多 120 秒） | `uv run python run_pipeline.py --timeout 120` |
+| **快速開發迭代**（mock + 少量任務） | `uv run python run_pipeline.py --mock --tasks 5` |
+| **正式跑分 + 加速** | `uv run python run_pipeline.py --threads 2 --timeout 300` |
+
+執行完成後會輸出 `baseline_report_<timestamp>.json`，包含評分指標與每筆任務的詳細結果。
+
+```
+CLI 參數說明：
+  --mock         使用假 LLM（不消耗 Token，僅驗證流程結構）
+  --tasks N      只執行前 N 筆任務
+  --threads N    Worker 執行緒數（預設 1 = sequential）
+  --timeout SEC  每筆任務逾時秒數（預設 300，0 = 不限）
+```
 
 ---
 
