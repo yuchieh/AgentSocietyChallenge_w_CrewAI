@@ -9,6 +9,11 @@ run_simulator_test.py — AgentSociety + CrewAI 整合測試腳本
 """
 import sys
 import os
+
+if sys.prefix == sys.base_prefix:
+    print("❌ 請使用 uv run 執行此腳本：uv run python run_simulator_test.py", file=sys.stderr)
+    sys.exit(1)
+
 import logging
 import json
 

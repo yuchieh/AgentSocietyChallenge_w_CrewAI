@@ -14,8 +14,9 @@ class CrewAISimulationAgent(SimulationAgent):
     """
     Adapter connecting AgentSociety's simulator framework to the CrewAI flow.
     """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, llm=None, *args, **kwargs):
+        # llm is unused — CrewAI manages its own LLM via env vars (OPENAI_API_KEY / OPENAI_API_BASE)
+        super().__init__(llm=llm, *args, **kwargs)
 
     def workflow(self):
         # 1. 解析官方 Simulator 給予的任務與上下文

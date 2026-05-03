@@ -2,7 +2,13 @@
 run_nvidia_test.py — 驗證 NVIDIA NIM API 是否能與 CrewAI + AgentSociety 完整串通
 此腳本不使用任何 Mock，會真實呼叫 NVIDIA 端點的 LLM。
 """
+import sys
 import os
+
+if sys.prefix == sys.base_prefix:
+    print("❌ 請使用 uv run 執行此腳本：uv run python run_nvidia_test.py", file=sys.stderr)
+    sys.exit(1)
+
 import logging
 import json
 
