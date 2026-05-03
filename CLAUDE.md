@@ -63,12 +63,38 @@ Push worktree 分支 → 開 PR → merge 進 main → 本地 pull main
 - Pydantic State 欄位：`predicted_rating`、`generated_review`（名稱不可改）
 - InteractionTool 查詢類型：`"user"`, `"item"`, `"review_by_user"`, `"review_by_item"`
 
+## 環境管理：永遠使用 uv
+
+本專案**只使用 uv** 管理環境，禁止使用 `pip install`、`poetry`、`conda` 或直接呼叫系統 `python3`。
+
+```bash
+# ✅ 正確
+uv run python run_pipeline.py
+uv sync
+uv add <package>
+
+# ❌ 禁止
+python3 run_pipeline.py
+pip install <package>
+```
+
+所有 `.py` 腳本已內建守衛，直接用系統 Python 執行會立即中止並提示正確用法。
+
 ## 執行測試
 
 ```bash
 # Mock 模式（零成本結構驗證）
-uv run python run_baseline.py --mock
+uv run python run_pipeline.py --mock
 
-# 真實 LLM
-uv run python run_baseline.py
+# 真實 LLM，全部任務
+uv run python run_pipeline.py
+
+# 2-worker threading
+uv run python run_pipeline.py --threads 2
+
+# 只跑 1 筆（smoke test，等同 run_nvidia_test.py）
+uv run python run_pipeline.py --tasks 1
+
+# 自訂逾時（秒）
+uv run python run_pipeline.py --timeout 120
 ```
