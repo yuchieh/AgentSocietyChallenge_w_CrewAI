@@ -40,22 +40,21 @@ TIMEOUT_SEC = args.timeout if args.timeout > 0 else None
 # ======================================================================
 if args.mock:
     from unittest.mock import patch
+    import litellm
 
     def fake_completion(*a, **kw):
-        class FakeMessage:
-            content = '{"stars": 4.0, "review": "[Mocked] Good place, friendly staff!"}'
-            tool_calls = None
-        class FakeChoice:
-            message = FakeMessage()
-            finish_reason = "stop"
-        class FakeResponse:
-            choices = [FakeChoice()]
-            id = "mock-id"
-            model = "gpt-4"
-            usage = None
-        return FakeResponse()
+        resp = litellm.ModelResponse()
+        resp.choices = [litellm.Choices(
+            message=litellm.Message(
+                content='{"stars": 4.0, "review": "[Mocked] Good place, friendly staff!"}',
+                role="assistant",
+            ),
+            finish_reason="stop",
+        )]
+        resp.model = "gpt-4"
+        return resp
 
-    patch("openai.resources.chat.completions.Completions.create", side_effect=fake_completion).start()
+    patch("litellm.completion", side_effect=fake_completion).start()
     os.environ["OPENAI_API_KEY"] = "sk-mock-key"
     print("⚙️  Mode: Mock LLM (no token cost)")
 else:
