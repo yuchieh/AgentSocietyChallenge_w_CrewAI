@@ -29,25 +29,48 @@
 ```
 Today is the official test day for AgentSociety Challenge.
 
-Please help me complete the pre-test setup by doing the following steps in order:
+Context you must understand before touching any files:
 
-1. Pull the instructor's latest updates:
+MY implementation files (written by me — must NEVER be overwritten):
+  - src/crews/simulation_crew.py   ← my CrewAI crew design
+  - config/agents.yaml             ← my agent role definitions
+  - config/tasks.yaml              ← my task instructions
+  - crewai_simulation_agent.py     ← adapter I may have customised
+
+What the instructor's update contains (ONLY these change on the instructor's side):
+  - run_test.py                    ← new or updated official test runner
+  - scripts/check_compatibility.py ← new pre-test checker
+  - docs/student_test_guide.md     ← new guide
+  - pyproject.toml                 ← dependency updates only
+  - uv.lock                        ← auto-generated lock file
+
+Please complete the pre-test setup by doing the following steps in order:
+
+1. Stash any local changes so the pull is clean:
+   git stash
+
+2. Pull the instructor's latest updates:
    git pull origin main
 
-2. If there are merge conflicts, resolve them as follows:
-   - uv.lock → always accept the instructor's version (git checkout --theirs uv.lock)
-   - pyproject.toml → keep both sides' dependencies
-   - run_pipeline.py → keep the instructor's changes; merge carefully with any local edits
-   - crewai_simulation_agent.py → preserve my existing implementation; only add new methods if the instructor added any
-   After resolving all conflicts, complete the merge.
+3. Re-apply my local changes:
+   git stash pop
 
-3. Sync the environment:
+4. If git stash pop reports conflicts, resolve them file by file:
+   - src/crews/simulation_crew.py → always keep MY version (git checkout --ours)
+   - config/agents.yaml           → always keep MY version (git checkout --ours)
+   - config/tasks.yaml            → always keep MY version (git checkout --ours)
+   - crewai_simulation_agent.py   → preserve my existing code; only add new methods the instructor introduced
+   - pyproject.toml               → keep BOTH sides' dependencies
+   - uv.lock                      → accept the instructor's version (git checkout --theirs)
+   After resolving, run: git add <resolved files> && git stash drop
+
+5. Sync the environment:
    uv sync
 
-4. Run the pre-test compatibility check:
+6. Run the pre-test compatibility check:
    uv run python scripts/check_compatibility.py
 
-5. If any check fails, read the error message and fix it, then re-run check_compatibility.py.
+7. If any check fails, read the error message and fix it, then re-run check_compatibility.py.
 
 Keep going until you see:
 ✅ All checks passed — your agent is ready for the test.
@@ -74,10 +97,15 @@ Expected output (something like):
 remote: Enumerating objects: 12, done.
 ...
 Updating abc1234..def5678
- run_test.py               | 200 +++++++++++++++++
+ run_test.py                    | 200 +++++++++++++++++
  scripts/check_compatibility.py | 150 +++++++++++++
+ docs/student_test_guide.md     |  80 +++++++
+ pyproject.toml                 |   3 +
+ uv.lock                        | 500 +++++++++++++++++++++
  ...
 ```
+
+> The pull **only adds new files and updates dependencies** (`pyproject.toml`, `uv.lock`). It does **not** touch your implementation files (`src/crews/`, `config/`, `crewai_simulation_agent.py`). If you see those files listed as changed, stop and ask the instructor.
 
 > If you see `Already up to date.`, wait for the instructor to confirm the push has gone through, then try again.
 
@@ -247,6 +275,14 @@ A local copy of the report is also saved in your project folder as `test_report_
 ## Troubleshooting
 
 ### `git pull` has conflicts
+
+> **⚠️ Warning — files you must NEVER overwrite:**
+> The following files contain YOUR implementation. No matter what conflict resolution strategy you use, always keep your own version of these files:
+> - `src/crews/simulation_crew.py`
+> - `config/agents.yaml`
+> - `config/tasks.yaml`
+>
+> If any of these files appear in a conflict, run `git checkout --ours <file>` to restore your version immediately.
 
 #### General approach — stash first, pull, re-apply
 
