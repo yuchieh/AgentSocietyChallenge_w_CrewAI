@@ -1,20 +1,20 @@
 """
 run_test.py — Official Test-Day Evaluation Runner
 
-This script is run by students (with the teacher present) on test day.
+This script is run by students (with the instructor present) on test day.
 It:
   1. Asks for team member names and student IDs (variable count)
-  2. Shows a confirmation screen with the email subject
+  2. Prompts for the instructor-provided App Password (entered at runtime)
   3. Downloads the test set zip from Google Drive (or uses a local path)
   4. Runs inference on all test tasks
   5. Evaluates results with the official simulator
-  6. Emails report.json + env.json to the teacher
+  6. Emails report.json + env.json to the instructor
   7. Saves a local copy of the report
 
 Prerequisites:
   - .env must contain OPENAI_API_KEY and OPENAI_API_BASE
-  - GDRIVE_URL below must be filled in by the teacher before distributing
-  - INSTRUCTOR_EMAIL and INSTRUCTOR_INSTRUCTOR_APP_PASSWORD must be filled in below
+  - GDRIVE_URL below must be filled in by the instructor before distributing
+  - The instructor will provide the App Password verbally / via slides on test day
 
 Usage:
   uv run python run_test.py                          # download from Google Drive
@@ -45,13 +45,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as
 # ======================================================================
 # Instructor-configured constants — fill in before distributing to students
 # ======================================================================
-INSTRUCTOR_EMAIL       = ""   # e.g. "yc.ho@gms.ndhu.edu.tw"
-INSTRUCTOR_INSTRUCTOR_APP_PASSWORD = ""  # 16-char Gmail App Password (no spaces needed)
+INSTRUCTOR_EMAIL = "yc.ho@gms.ndhu.edu.tw"
+# App Password is NOT stored here — it is entered by the student at runtime
+# (prompted in Step 2 of the interactive flow).
 
 # Google Drive sharing URL for the test set zip.
 # Paste the "Anyone with the link" share URL here.
 # Leave empty ("") to disable auto-download and use --test-set instead.
-GDRIVE_URL = ""
+GDRIVE_URL = "https://drive.google.com/file/d/110h8DGAm1IEoAGl6Oqqg7fZMN4HM0dUv/view?usp=sharing"
 
 # ======================================================================
 # CLI
@@ -156,6 +157,12 @@ print(f"  Email subject : {email_subject}")
 print(f"  Report to     : {INSTRUCTOR_EMAIL or '⚠️  (not configured)'}")
 print()
 
+INSTRUCTOR_APP_PASSWORD = input("  App Password  : (provided by instructor) ").strip()
+if not INSTRUCTOR_APP_PASSWORD:
+    print("  ⚠️  App Password is required to submit results.")
+    sys.exit(1)
+print()
+
 confirm = input("Proceed? [y/N]: ").strip().lower()
 if confirm != "y":
     print("Aborted.")
@@ -187,7 +194,11 @@ elif GDRIVE_URL:
     zip_path = os.path.join(tmp_dir, "test_set.zip")
     print(f"  ⏳ Downloading test set from Google Drive ...")
     try:
-        gdown.download(GDRIVE_URL, zip_path, quiet=False, fuzzy=True)
+        # Extract file ID from sharing URL and download
+        import re as _re
+        _m = _re.search(r"/d/([a-zA-Z0-9_-]+)", GDRIVE_URL)
+        file_id = _m.group(1) if _m else GDRIVE_URL
+        gdown.download(id=file_id, output=zip_path, quiet=False)
     except Exception as e:
         print(f"❌ Download failed: {e}", file=sys.stderr)
         print("   Check your internet connection and confirm the sharing link is", file=sys.stderr)
@@ -241,6 +252,21 @@ def _run_single(idx, task, interaction_tool):
     agent.insert_task(task)
     return agent.workflow()
 
+_RATE_LIMIT_RETRIES = 3
+
+def _run_single_with_retry(idx, task, interaction_tool):
+    for attempt in range(_RATE_LIMIT_RETRIES):
+        try:
+            return _run_single(idx, task, interaction_tool)
+        except Exception as e:
+            is_rate_limit = "RateLimitError" in type(e).__name__ or "429" in str(e)
+            if is_rate_limit and attempt < _RATE_LIMIT_RETRIES - 1:
+                wait = 60 * (attempt + 1)
+                print(f"\n    ⚠️  Rate limit — waiting {wait}s before retry {attempt + 2}/{_RATE_LIMIT_RETRIES}...", flush=True)
+                time.sleep(wait)
+                continue
+            raise
+
 infer_start = time.time()
 per_task_times = []
 simulator.simulation_outputs = []
@@ -248,7 +274,7 @@ simulator.simulation_outputs = []
 if args.threads > 1:
     with ThreadPoolExecutor(max_workers=args.threads) as ex:
         futures_map = {
-            ex.submit(_run_single, i, t, simulator.interaction_tool): (i, t)
+            ex.submit(_run_single_with_retry, i, t, simulator.interaction_tool): (i, t)
             for i, t in enumerate(simulator.tasks)
         }
         for future in as_completed(futures_map):
@@ -259,10 +285,10 @@ if args.threads > 1:
                 result = {"task": t.to_dict(), "output": output}
                 stars  = output.get("stars", "N/A")
             except FuturesTimeout:
-                result = {"task": t.to_dict(), "error": f"Timeout after {TIMEOUT_SEC}s"}
+                result = {"task": t.to_dict(), "output": {"stars": 0, "review": ""}, "error": f"Timeout after {TIMEOUT_SEC}s"}
                 stars  = "TIMEOUT"
             except Exception as e:
-                result = {"task": t.to_dict(), "error": str(e)}
+                result = {"task": t.to_dict(), "output": {"stars": 0, "review": ""}, "error": str(e)}
                 stars  = "ERR"
             elapsed = time.time() - t0
             per_task_times.append(elapsed)
@@ -274,14 +300,14 @@ else:
         t0 = time.time()
         try:
             with ThreadPoolExecutor(max_workers=1) as ex:
-                output = ex.submit(_run_single, i, t, simulator.interaction_tool).result(timeout=TIMEOUT_SEC)
+                output = ex.submit(_run_single_with_retry, i, t, simulator.interaction_tool).result(timeout=TIMEOUT_SEC)
             result = {"task": t.to_dict(), "output": output}
             stars  = output.get("stars", "N/A")
         except FuturesTimeout:
-            result = {"task": t.to_dict(), "error": f"Timeout after {TIMEOUT_SEC}s"}
+            result = {"task": t.to_dict(), "output": {"stars": 0, "review": ""}, "error": f"Timeout after {TIMEOUT_SEC}s"}
             stars  = "TIMEOUT"
         except Exception as e:
-            result = {"task": t.to_dict(), "error": str(e)}
+            result = {"task": t.to_dict(), "output": {"stars": 0, "review": ""}, "error": str(e)}
             stars  = "ERR"
         elapsed = time.time() - t0
         per_task_times.append(elapsed)
