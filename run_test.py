@@ -5,22 +5,22 @@ This script is run by students (with the teacher present) on test day.
 It:
   1. Asks for team member names and student IDs (variable count)
   2. Shows a confirmation screen with the email subject
-  3. Downloads the teacher-provided test set zip (or loads from USB)
-  4. Runs inference on all 35 test tasks
+  3. Downloads the test set zip from Google Drive (or uses a local path)
+  4. Runs inference on all test tasks
   5. Evaluates results with the official simulator
   6. Emails report.json + env.json to the teacher
   7. Saves a local copy of the report
 
 Prerequisites:
   - .env must contain OPENAI_API_KEY and OPENAI_API_BASE
-  - Email credentials are embedded by the teacher (GMAIL_USER / GMAIL_APP_PASSWORD)
-  - Test set zip path is passed via --test-set (default: test_set.zip)
+  - GDRIVE_URL below must be filled in by the teacher before distributing
+  - Email credentials: set GMAIL_USER / GMAIL_APP_PASSWORD as env vars
 
 Usage:
-  uv run python run_test.py
-  uv run python run_test.py --test-set /path/to/test_set.zip
-  uv run python run_test.py --test-set /path/to/test_set.zip --threads 2
-  uv run python run_test.py --mock   # dry-run with mock LLM (no API cost)
+  uv run python run_test.py                          # download from Google Drive
+  uv run python run_test.py --test-set local.zip     # use local zip (overrides GDRIVE_URL)
+  uv run python run_test.py --threads 2              # parallel inference
+  uv run python run_test.py --mock                   # dry-run, no API cost
 """
 import sys
 import os
@@ -43,17 +43,22 @@ from email.message import EmailMessage
 from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeout
 
 # ======================================================================
-# Teacher-configured email credentials (fill in before test day)
+# Teacher-configured constants (fill in before distributing to students)
 # ======================================================================
-TEACHER_EMAIL    = os.environ.get("GMAIL_USER",         "").strip()
-APP_PASSWORD     = os.environ.get("GMAIL_APP_PASSWORD", "").strip().replace(" ", "")
+TEACHER_EMAIL = os.environ.get("GMAIL_USER",         "").strip()
+APP_PASSWORD  = os.environ.get("GMAIL_APP_PASSWORD", "").strip().replace(" ", "")
+
+# Google Drive sharing URL for the test set zip.
+# Paste the "Anyone with the link" share URL here.
+# Leave empty ("") to disable auto-download and use --test-set instead.
+GDRIVE_URL = ""
 
 # ======================================================================
 # CLI
 # ======================================================================
 parser = argparse.ArgumentParser(description="AgentSociety Official Test-Day Runner")
-parser.add_argument("--test-set", default="test_set.zip",
-                    metavar="ZIP", help="Path to test set zip (default: test_set.zip)")
+parser.add_argument("--test-set", default=None,
+                    metavar="ZIP", help="Local path to test set zip (overrides Google Drive download)")
 parser.add_argument("--threads",  type=int, default=1,   metavar="N",
                     help="Worker threads (default: 1 = sequential)")
 parser.add_argument("--timeout",  type=int, default=300, metavar="SEC",
@@ -139,7 +144,12 @@ print("-" * 40)
 print(f"  Team members  : {len(members)}")
 for m in members:
     print(f"    • {m['name']} ({m['student_id']})")
-print(f"  Test set      : {args.test_set}")
+if args.test_set:
+    print(f"  Test set      : {args.test_set}  (local)")
+elif GDRIVE_URL:
+    print(f"  Test set      : Google Drive  (will download after confirmation)")
+else:
+    print(f"  Test set      : ⚠️  not configured")
 print(f"  Threads       : {args.threads}")
 print(f"  Timeout/task  : {TIMEOUT_SEC or '∞'}s")
 print(f"  Email subject : {email_subject}")
@@ -152,27 +162,60 @@ if confirm != "y":
     sys.exit(0)
 
 # ======================================================================
-# 3. Extract test set to temp directory
+# 3. Obtain test set zip (Google Drive download or local path)
 # ======================================================================
 print()
 print("Step 3 — Loading test set ...")
-test_set_path = args.test_set
-
-if not os.path.exists(test_set_path):
-    print(f"❌ Test set not found: {test_set_path}", file=sys.stderr)
-    print("   Provide the zip via --test-set or copy it to the current directory.", file=sys.stderr)
-    sys.exit(1)
 
 tmp_dir_obj = tempfile.TemporaryDirectory(prefix="agentsociety_test_")
-tmp_dir = tmp_dir_obj.name
+tmp_dir  = tmp_dir_obj.name
 task_dir = os.path.join(tmp_dir, "tasks")
 gt_dir   = os.path.join(tmp_dir, "groundtruth")
 
-with zipfile.ZipFile(test_set_path, "r") as zf:
+# Decide source: explicit --test-set overrides GDRIVE_URL
+if args.test_set:
+    # --- Local file (override mode) ---
+    if not os.path.exists(args.test_set):
+        print(f"❌ Test set not found: {args.test_set}", file=sys.stderr)
+        sys.exit(1)
+    zip_path = args.test_set
+    print(f"  ℹ️  Using local file: {zip_path}")
+
+elif GDRIVE_URL:
+    # --- Google Drive download ---
+    import gdown
+    zip_path = os.path.join(tmp_dir, "test_set.zip")
+    print(f"  ⏳ Downloading test set from Google Drive ...")
+    try:
+        gdown.download(GDRIVE_URL, zip_path, quiet=False, fuzzy=True)
+    except Exception as e:
+        print(f"❌ Download failed: {e}", file=sys.stderr)
+        print("   Check your internet connection and confirm the sharing link is", file=sys.stderr)
+        print("   set to 'Anyone with the link — Viewer'.", file=sys.stderr)
+        tmp_dir_obj.cleanup()
+        sys.exit(1)
+    if not os.path.exists(zip_path) or os.path.getsize(zip_path) == 0:
+        print("❌ Downloaded file is empty or missing.", file=sys.stderr)
+        print("   The Google Drive link may have expired or sharing permissions", file=sys.stderr)
+        print("   may not be set to 'Anyone with the link'.", file=sys.stderr)
+        tmp_dir_obj.cleanup()
+        sys.exit(1)
+    size_kb = os.path.getsize(zip_path) / 1024
+    print(f"  ✅ Downloaded ({size_kb:.1f} KB)")
+
+else:
+    print("❌ No test set available.", file=sys.stderr)
+    print("   Either set GDRIVE_URL in run_test.py, or pass a local zip:", file=sys.stderr)
+    print("   uv run python run_test.py --test-set /path/to/test_set.zip", file=sys.stderr)
+    tmp_dir_obj.cleanup()
+    sys.exit(1)
+
+# Extract zip
+with zipfile.ZipFile(zip_path, "r") as zf:
     zf.extractall(tmp_dir)
 
 n_tasks = len([f for f in os.listdir(task_dir) if f.endswith(".json")])
-print(f"  ✅ Extracted {n_tasks} tasks to temp directory")
+print(f"  ✅ Extracted {n_tasks} tasks")
 
 # ======================================================================
 # 4. Inference
