@@ -14,7 +14,7 @@ It:
 Prerequisites:
   - .env must contain OPENAI_API_KEY and OPENAI_API_BASE
   - GDRIVE_URL below must be filled in by the teacher before distributing
-  - Email credentials: set GMAIL_USER / GMAIL_APP_PASSWORD as env vars
+  - INSTRUCTOR_EMAIL and INSTRUCTOR_INSTRUCTOR_APP_PASSWORD must be filled in below
 
 Usage:
   uv run python run_test.py                          # download from Google Drive
@@ -43,10 +43,10 @@ from email.message import EmailMessage
 from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeout
 
 # ======================================================================
-# Teacher-configured constants (fill in before distributing to students)
+# Instructor-configured constants — fill in before distributing to students
 # ======================================================================
-TEACHER_EMAIL = os.environ.get("GMAIL_USER",         "").strip()
-APP_PASSWORD  = os.environ.get("GMAIL_APP_PASSWORD", "").strip().replace(" ", "")
+INSTRUCTOR_EMAIL       = ""   # e.g. "yc.ho@gms.ndhu.edu.tw"
+INSTRUCTOR_INSTRUCTOR_APP_PASSWORD = ""  # 16-char Gmail App Password (no spaces needed)
 
 # Google Drive sharing URL for the test set zip.
 # Paste the "Anyone with the link" share URL here.
@@ -153,7 +153,7 @@ else:
 print(f"  Threads       : {args.threads}")
 print(f"  Timeout/task  : {TIMEOUT_SEC or '∞'}s")
 print(f"  Email subject : {email_subject}")
-print(f"  Report to     : {TEACHER_EMAIL or '⚠️  (not configured)'}")
+print(f"  Report to     : {INSTRUCTOR_EMAIL or '⚠️  (not configured)'}")
 print()
 
 confirm = input("Proceed? [y/N]: ").strip().lower()
@@ -371,17 +371,17 @@ print("=" * 65)
 report_bytes = json.dumps(report,       indent=2, ensure_ascii=False).encode("utf-8")
 env_bytes    = json.dumps(env_snapshot, indent=2, ensure_ascii=False).encode("utf-8")
 
-if not TEACHER_EMAIL or not APP_PASSWORD:
+if not INSTRUCTOR_EMAIL or not INSTRUCTOR_APP_PASSWORD:
     print()
-    print("⚠️  Email not configured (GMAIL_USER / GMAIL_APP_PASSWORD not set).")
-    print(f"   Please send {REPORT_PATH} to the teacher manually.")
+    print("⚠️  Email not configured (INSTRUCTOR_EMAIL / INSTRUCTOR_APP_PASSWORD not set).")
+    print(f"   Please send {REPORT_PATH} to the instructor manually.")
 else:
     print()
     print("Step 6 — Sending results to teacher ...")
     msg = EmailMessage()
     msg["Subject"] = email_subject
-    msg["From"]    = TEACHER_EMAIL
-    msg["To"]      = TEACHER_EMAIL
+    msg["From"]    = INSTRUCTOR_EMAIL
+    msg["To"]      = INSTRUCTOR_EMAIL
 
     metrics_lines = "\n".join(
         f"  {k}: {v}" for k, v in eval_results.get("metrics", {}).items()
@@ -408,9 +408,9 @@ else:
 
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as server:
-            server.login(TEACHER_EMAIL, APP_PASSWORD)
+            server.login(INSTRUCTOR_EMAIL, INSTRUCTOR_APP_PASSWORD)
             server.send_message(msg)
-        print(f"  ✅ Email sent to {TEACHER_EMAIL}")
+        print(f"  ✅ Email sent to {INSTRUCTOR_EMAIL}")
     except smtplib.SMTPAuthenticationError as e:
         print(f"  ❌ Authentication failed: {e}", file=sys.stderr)
         print(f"   Manually send {REPORT_PATH} to the teacher.", file=sys.stderr)
